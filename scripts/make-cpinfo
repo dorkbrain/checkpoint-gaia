@@ -1,0 +1,14 @@
+#!/bin/bash
+function isManagement() {
+  cpstat mg | grep -q 'Management Server' >/dev/null 2>&1
+}
+
+mkdir -p /var/log/cpinfo
+saveTo=/var/log/cpinfo/$(hostname -s)-$(date +"%Y%m%d")
+if isManagement; then
+  cpinfo -d -D -i -x -z -o $saveTo
+else
+  cpinfo -d -D -i -z -o $saveTo
+fi
+echo "CPInfo saved to: ${saveTo}.info.tar.gz"
+ls -l "${saveTo}.info.tar.gz"
