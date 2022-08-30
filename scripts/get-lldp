@@ -1,0 +1,6 @@
+#!/bin/bash
+if [[ "$1" == "" ]]; then
+  echo "Usage: $0 <ifname>"
+else
+  lldpneighbors | awk "/Interface '$1/{print;flag=1;next}/Interface '/{flag=0}flag" | tr -d "\007"
+fi
