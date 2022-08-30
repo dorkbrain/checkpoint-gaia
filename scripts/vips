@@ -1,0 +1,53 @@
+#!/bin/bash
+function in_subnet {
+  # $1 = CIDR   $2 = Address
+  local ip ip_a mask netmask sub sub_ip rval start end
+
+  # Define bitmask.
+  local readonly BITMASK=0xFFFFFFFF
+
+  # Read arguments.
+  IFS=/ read sub mask <<< "${1}"
+  IFS=. read -a sub_ip <<< "${sub}"
+  IFS=. read -a ip_a <<< "${2}"
+
+  # Calculate netmask.
+  netmask=$(($BITMASK<<$((32-$mask)) & $BITMASK))
+
+  # Determine address range.
+  start=0
+  for o in "${sub_ip[@]}"; do
+    start=$(($start<<8 | $o))
+  done
+
+  start=$(($start & $netmask))
+  end=$(($start | ~$netmask & $BITMASK))
+
+  # Convert IP address to 32-bit number.
+  ip=0
+  for o in "${ip_a[@]}"; do
+    ip=$(($ip<<8 | $o))
+  done
+
+  # Determine if IP in range.
+  (( $ip >= $start )) && (( $ip <= $end )) && rval=0 || rval=1
+
+  return ${rval}
+}
+
+vips=$(cphaprob -a if | sed '1,/Virtual cluster interfaces/d; /^$/d' | awk '{print $1, $2}' | sort)
+direct_routes=$(clish -c 'show route direct' | grep '^C[[:space:]]' | awk '{print $6, $2}')
+comments=$(clish -c 'show configuration interface' 2>/dev/null | grep "comments")
+
+echo "##### VIP List #####"
+printf "%-20s%-17s%-17s%-20s%s\n" "Name" "VIP" "Physical" "CIDR Prefix" "Comments"
+while read -r ifname ifvip; do
+  while read -r routeif cidr; do
+    if [[ "${ifname}" == "${routeif}" ]]; then
+      if in_subnet ${cidr} ${ifvip}; then
+        ifaddr=$(ip -o addr list ${ifname} | awk '{ print $4; exit }' | awk -F/ '{ print $1 }')
+        ifcomment=$(grep "${ifname} comments"<<<"${comments}" | cut -d' ' -f5- | tr -d '"')
+        printf "%-20s%-17s%-17s%-20s%s\n" "${ifname}" "${ifvip}" "${ifaddr}" "${cidr}" "${ifcomment}"
+      fi
+    fi
+  done <<< "${direct_routes[@]}"
