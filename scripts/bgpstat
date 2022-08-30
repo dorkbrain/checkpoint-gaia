@@ -1,0 +1,60 @@
+#!/bin/bash
+TERM=linux
+[[ -f /etc/profile.d/vsenv.sh ]] && . /etc/profile.d/vsenv.sh
+function IsVSX() {
+  if [[ $(cpprod_util FwIsVSX | tr -d ' ') == "1" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+function do_clish() {
+  if IsVSX; then
+    tmpscript=$(mktemp)
+    echo "set virtual-system $INSTANCE_VSID" > $tmpscript
+    echo "$@" >> $tmpscript
+    clish -f $tmpscript 2>/dev/null | grep -v 'Done.'
+    rm -f $tmpscript
+  else
+    clish -c "$@" 2>/dev/null
+  fi
+}
+
+cBlack=$(tput setaf 0)
+cRed=$(tput setaf 1)
+cGreen=$(tput setaf 2)
+cYellow=$(tput setaf 3)
+cBlue=$(tput setaf 4)
+cMagenta=$(tput setaf 5)
+cCyan=$(tput setaf 6)
+cWhite=$(tput setaf 7)
+cBold=$(tput bold)
+cReverse=$(tput smso)
+cBlink=$(tput blink)
+cUnderline=$(tput smul)
+cNormal=$(tput sgr0)
+
+formatString='%-16s %-12s %-7s %-7s %-12s %-9s %-14s %-16s %s\n'
+(( termW = $(tput cols) - 1 ))
+header=$(printf "$formatString" "Peer" "ASN" "Routes" "Active" "State" "Uptime" "Gateway NIC" "Cluster VIP" "Peer Comment")
+sep=$(printf '=%.s' $(seq 1 $termW))
+
+vips=$(cphaprob -a if | sed '0,/^Virtual cluster interfaces/d')
+peerComments=$(do_clish 'show configuration bgp' | grep 'description')
+
+output=$(
+  do_clish "show bgp peers" | sed '0,/^PeerID/d' | while IFS= read -r line; do
+    read -r peer asn routes activeRoutes bgpState bgpUptime <<<$(echo $line | awk '{ print $1" "$2" "$3" "$4" "$5" "$8 }')
+    ifName=$(ip route get $peer | grep ' dev ' | sed -r 's/.* dev ([a-zA-Z0-9].*) src .*/\1/g')
+    ifAddress=$(echo "$vips" | grep "$ifName " | awk '{ print $2 }')
+    ifComment=$(echo "$peerComments" | grep "remote-as $asn " | sed -r 's/.* description (.*)/\1/; s/"//g')
+    printf "$formatString" "$peer" "$asn" "$routes" "$activeRoutes" "$bgpState" "$bgpUptime" "$ifName" "$ifAddress" "$ifComment"
+  done
+)
+printf "$header\n$sep\n" | sed -r "s/(ASN)/${cWhite}${cBold}\1${cNormal}/g"
+echo "$output" | sort -k2n -k1V | sed -r "
+  s/(Established)/${cGreen}${cBold}\1${cNormal}/g ;
+  s/(OpenSent|OpenConfirm|Connect|Idle)/${cYellow}${cBold}\1${cNormal}/g ;
+  s/(Active)/${cRed}${cBold}\1${cNormal}/g ;
+"
