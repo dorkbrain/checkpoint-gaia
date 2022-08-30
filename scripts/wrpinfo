@@ -1,0 +1,38 @@
+#!/bin/bash
+
+vsx get
+echo
+
+regex_ip='addr:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})'
+regex_mask='Mask:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})'
+regex_mac='HWaddr (..:..:..:..:..:..)'
+
+iflist=$(ifconfig $1 | grep -E '^(wrp[0-9]*|eth[0-9]*)' | cut -f1 -d' ')
+
+for ifname in $iflist; do
+  virtif=$(/bin/cp-ifconfig.sh $ifname)
+  realif=$(/sbin/ifconfig $ifname)
+
+  if [[ $virtif =~ $regex_ip ]]; then
+    virtip=${BASH_REMATCH[1]}
+  fi
+  if [[ $virtif =~ $regex_mask ]]; then
+    virtmask=${BASH_REMATCH[1]}
+  fi
+  if [[ $virtif =~ $regex_mac ]]; then
+    virtmac=${BASH_REMATCH[1]}
+  fi
+
+  if [[ $realif =~ $regex_ip ]]; then
+    realip=${BASH_REMATCH[1]}
+  fi
+  if [[ $realif =~ $regex_mask ]]; then
+    realmask=${BASH_REMATCH[1]}
+  fi
+  if [[ $realif =~ $regex_mac ]]; then
+    realmac=${BASH_REMATCH[1]}
+  fi
+
+  printf "%-6s virt: ip=%-15s\tmask=%-15s\tmac=%s\n" $ifname $virtip $virtmask $virtmac
+  printf "%-6s real: ip=%-15s\tmask=%-15s\tmac=%s\n\n" $ifname $realip $realmask $realmac
+done
