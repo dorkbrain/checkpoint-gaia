@@ -20,7 +20,7 @@ if __name__ == "__main__":
   parser.add_argument('-d', '--delay', dest='delay', type=int, default=1, required=False, metavar='n', help='Seconds to wait between port checks (default=1)')
   parser.add_argument('-t', '--timeout', dest='timeout', type=int, default=5, required=False, metavar='n', help='TCP port timeout (default=5)')
   
-  args = parser.parse_args(['labgw01', 'labgw02', '-w'])
+  args = parser.parse_args()
 
   try:
     if not args.host:
