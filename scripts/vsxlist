@@ -1,13 +1,4 @@
 #!/bin/bash
-thisVS=$(cat /proc/self/nsid)
-for v in 0 $(vsx stat -v | grep ' | S ' | awk '{ print $1 }'); do
-  vsenv $v
-  cphaprob stat | grep --color=never -E '^(ID|1|2|Active PNOTE)'
-  echo
-done
-vsenv $thisVS>/dev/null
-[Expert@chkasp001egrp:0]# cat vsxlist
-#!/bin/bash
 echo -e "VSID\tName"
 echo -e "0\t$(cat /opt/CPsuite-R80*/fw1/conf/vsname)" | grep -i "$1"
 for v in /opt/CPsuite-R80*/fw1/CTX/CTX*/conf/vsname; do
