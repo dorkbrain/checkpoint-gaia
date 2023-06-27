@@ -1,0 +1,17 @@
+#!/bin/bash
+if [[ "$1" == "-i" ]]; then
+  # Including match
+  shift
+  sed -ne "/$@/,\$ p"
+else
+  # Excluding match
+  sed -e "1,/$@/ d"
+fi
+
+### Pipe output to this script to show lines after matching text
+
+### Print all lines after "My Text"
+### command | after "My Text"
+
+### Print all lines after and including "My Text"
+### command | after -i "My Text"
