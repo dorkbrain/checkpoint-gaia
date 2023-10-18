@@ -3,6 +3,10 @@ import argparse
 import socket
 from datetime import datetime
 import time
+import os
+
+__version_info__ = ('0', '2', '0')
+__author__ = 'Dan Cox'
 
 def portCheck(host, port, timeout):
   sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -13,12 +17,23 @@ def portCheck(host, port, timeout):
   else:
     return False
 
+def ping(hostname, timeout=3):
+  proc = os.popen(f"timeout {timeout} ping -c1 {hostname}")
+  _ = proc.read()
+  if not proc.close():
+    return True
+  else:
+    return False
+
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Check TCP port status of remote host(s)')
+  parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {".".join(__version_info__)} by {__author__}')
   parser.add_argument('host', nargs='*', help='List of hosts to check separated by spaces.  To specify a port use host:port, otherwise the default port used is 22.')
   parser.add_argument('-w', '--watch', dest='watch', action='store_true', required=False, help='Keep checking even if port is up')
+  parser.add_argument('-b', '--blank', dest='blank', action='store_true', required=False, help='Insert a blank line between cycles')
   parser.add_argument('-d', '--delay', dest='delay', type=int, default=1, required=False, metavar='n', help='Seconds to wait between port checks (default=1)')
   parser.add_argument('-t', '--timeout', dest='timeout', type=int, default=5, required=False, metavar='n', help='TCP port timeout (default=5)')
+  parser.add_argument('-i', '--icmp', dest='icmp', action='store_true', required=False, help='Send ICMP pings instead of TCP packets (port numbers are ignored)')
   
   args = parser.parse_args()
 
@@ -34,20 +49,31 @@ if __name__ == "__main__":
           else:
             host = thisHost
             port = 22
+          if args.icmp:
+            port = "icmp"
           print(f'{datetime.now().strftime("%m-%d-%y %H:%M:%S")}: [\x1b[s    ] . . . . . {host}:{port}\x1b[u', end='', flush=True)
-          if portCheck(host, port, args.timeout):
-            print("\x1b[1;32m UP \x1b[0m")
-            if not args.watch:
+          if args.icmp:
+            if ping(host, args.timeout):
+              print("\x1b[1;32m UP \x1b[0m")
+              if not args.watch:
                 args.host.remove(thisHost)
+            else:
+              print("\x1b[1;31mDOWN\x1b[0m")
           else:
-            print("\x1b[1;31mDOWN\x1b[0m")
+            if portCheck(host, port, args.timeout):
+              print("\x1b[1;32m UP \x1b[0m")
+              if not args.watch:
+                  args.host.remove(thisHost)
+            else:
+              print("\x1b[1;31mDOWN\x1b[0m")
 
         if args.host:
           print(f"\x1b[sDelaying {args.delay}s . . .", end='', flush=True)
           time.sleep(args.delay)
           print('\x1b[u\x1b[2K', end='', flush=True)
-
-
+          if args.blank:
+            print("")
+            
   except KeyboardInterrupt:
     print()
     pass
